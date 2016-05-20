@@ -139,6 +139,7 @@ function Get-GitRepositoryInfo
     User          = ($base.Split('/') | Select-Object -First 1).Replace('git@github.com:', '')
     Me            = git.exe config user.name
     CurrentBranch = $currentBranch
+    Upstream      = git.exe rev-parse --abbrev-ref --symbolic-full-name '@{u}'
   }
   return $result
 }
@@ -151,7 +152,10 @@ function Test-NoGitRepository
 
 function Test-PreRequisites
 {
-    $status = Get-VCSStatus
+    param(
+      [boolean]
+      $cleanDirectoryRequired = $false
+    )
     if (Test-NoGitRepository) {
       Write-Blank
       Write-Host 'This is not a Git repository'
@@ -166,15 +170,18 @@ function Test-PreRequisites
       return $false
     }
 
+    if ($cleanDirectoryRequired) {
+      $status = Get-VCSStatus
+      $localChanges = ($status.HasIndex -or $status.HasUntracked -or $status.HasWorking)
+      $localChanges = $localChanges -or (($status.Untracked -gt 0) -or ($status.Added -gt 0) -or ($status.Modified -gt 0) -or ($status.Deleted -gt 0) -or ($status.Renamed -gt 0))
+      return !$localChanges
+    }
+
     return $true
 }
 
-function Read-PullRequest
+function Get-PullRequest
 {
-  if (!(Test-PreRequisites)) {
-    return
-  }
-
   $repositoryInfo = Get-GitRepositoryInfo
   $result = Get-PullRequests -repositoryInfo $repositoryInfo
   if (!($result.Success)) {
@@ -194,6 +201,18 @@ function Read-PullRequest
   Write-Blank
   Write-Host 'Fetching origin'
   git.exe fetch origin
+  return $selectedPullRequest
+}
+
+function Read-PullRequest
+{
+  if (!(Test-PreRequisites)) {
+    return
+  }
+  $selectedPullRequest = Get-PullRequest
+  if ($selectedPullRequest -eq $null) {
+    return
+  }
   Write-Host 'Creating the diff'
   Write-Blank
   git.exe difftool -d -w $selectedPullRequest.base.ref "origin/$($selectedPullRequest.head.ref)"
@@ -218,6 +237,14 @@ function New-Pullrequest
   }
 
   $repositoryInfo = Get-GitRepositoryInfo
+
+  if ($repositoryInfo.Upstream -eq $null) {
+    Write-Host 'To be able to create a pull request, push the current branch by using'
+    Write-Blank
+    Write-Host "     git push --set-upstream origin $($repositoryInfo.CurrentBranch)"
+    Write-Blank
+    return
+  }
 
   $data = @{
      title = $title;
@@ -255,5 +282,26 @@ function New-Pullrequest
   Write-Blank
 }
 
+function Close-PullRequest
+{
+  if (!(Test-PreRequisites -cleanDirectoryRequired $true)) {
+    Write-Blank
+    Write-Host 'Please stash or commit your local changes before continuing'
+    Write-Blank
+    return
+  }
+  $selectedPullRequest = Get-PullRequest
+  if ($selectedPullRequest -eq $null) {
+    return
+  }
+  Write-Host "Merging origin/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
+  git.exe checkout $selectedPullRequest.base.ref
+  git.exe pull
+  git.exe merge "origin/$($selectedPullRequest.head.ref)" --ff-only
+  git push
+  git push origin --delete $selectedPullRequest.head.ref
+}
+
 Set-Alias rpr Read-PullRequest -Description "Review a Github pull request"
 Set-Alias npr New-PullRequest -Description "Create a Github pull request"
+Set-Alias cpr Close-PullRequest -Description "Close a Github pull request"
