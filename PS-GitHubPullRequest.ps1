@@ -20,11 +20,6 @@ function Get-PullRequests
     $repositoryInfo
   )
 
-  if ($settings.GitHubApiKey -eq $null){
-    Write-Host 'Please add your GitHub API key to the settings first'
-    exit
-  }
-
   $releaseParams = @{
     Uri         = "https://api.github.com/repos/$($repositoryInfo.User)/$($repositoryInfo.Repository)/pulls"
     Method      = 'GET'
@@ -108,15 +103,32 @@ function Test-NoGitRepository
     return $status -eq $null
 }
 
+function Test-PreRequisites
+{
+    $status = Get-VCSStatus
+    if (Test-NoGitRepository) {
+      Write-Blank
+      Write-Host 'This is not a Git repository'
+      Write-Blank
+      return $false
+    }
+
+    if ($settings.GitHubApiKey -eq $null){
+      Write-Blank
+      Write-Host 'Please add your GitHub API key to the settings first'
+      Write-Blank
+      return $false
+    }
+
+    return $true
+}
+
 function Read-PullRequest
 {
-  $status = Get-VCSStatus
-  if (Test-NoGitRepository) {
-    Write-Blank
-    Write-Host 'This is not a Git repository'
-    Write-Blank
+  if (!(Test-PreRequisites)) {
     return
   }
+
   $repositoryInfo = Get-GitRepositoryInfo
   $result = Get-PullRequests -repositoryInfo $repositoryInfo
   if ($result.count -eq 0) {
