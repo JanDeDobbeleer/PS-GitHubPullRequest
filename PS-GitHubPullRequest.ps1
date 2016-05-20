@@ -196,7 +196,7 @@ function Read-PullRequest
   git.exe fetch origin
   Write-Host 'Creating the diff'
   Write-Blank
-  git.exe difftool -d -w $settings.BaseBranch "origin/$($selectedPullRequest.head.ref)"
+  git.exe difftool -d -w $selectedPullRequest.base.ref "origin/$($selectedPullRequest.head.ref)"
 }
 
 function New-Pullrequest
