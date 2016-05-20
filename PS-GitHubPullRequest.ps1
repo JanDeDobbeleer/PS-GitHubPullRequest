@@ -121,7 +121,7 @@ function Select-Pullrequest
   {
     $result = Read-Host 'Please select a correct value'
   }
-  if ($choice -gt $result.length)
+  if ($choice -gt ($result.length + 1))
   {
     Write-Blank
     Write-Host 'Goodbye!'
