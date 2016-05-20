@@ -14,6 +14,50 @@ $global:GitHubPullRequestSettings = New-Object -TypeName PSObject -Property @{
 
 $settings = $global:GitHubPullRequestSettings
 
+function Get-WebReponse
+{
+  param(
+    $data
+  )
+
+  $result = $null
+  try {
+    $result = Invoke-RestMethod @data
+    return New-Object PSObject -Property @{
+      Success = $true
+      Body    = $result
+    }
+  }
+  catch {
+    return Get-Failure
+  }
+
+}
+
+function Get-Failure
+{
+  $message = ''
+  try {
+    $result = $_.Exception.Response.GetResponseStream()
+    $reader = New-Object System.IO.StreamReader($result)
+    $reader.BaseStream.Position = 0
+    $reader.DiscardBufferedData()
+    $response = $reader.ReadToEnd();
+    $body = ConvertFrom-Json $response
+    $message = $body.errors[0].message
+  }
+  catch {
+    $message = 'Failed to execute Web Request'
+  }
+  Write-Blank
+  Write-Host "Error: $message" -ForegroundColor Red
+  Write-Blank
+  return New-Object PSObject -Property @{
+    Success = $false
+    Body    = $message
+  }
+}
+
 function Get-PullRequests
 {
   param(
@@ -30,7 +74,7 @@ function Get-PullRequests
     ContentType = 'application/json'
   }
 
-  $result = Invoke-RestMethod @prParams
+  $result = Get-WebReponse $prParams
   return $result
 }
 
@@ -133,13 +177,16 @@ function Read-PullRequest
 
   $repositoryInfo = Get-GitRepositoryInfo
   $result = Get-PullRequests -repositoryInfo $repositoryInfo
-  if ($result.count -eq 0) {
+  if (!($result.Success)) {
+    return
+  }
+  if ($result.Body.count -eq 0) {
     Write-Blank
     Write-Host 'There are no open pull-requests for this repository'
     Write-Blank
     return
   }
-  $selectedPullRequest = Select-Pullrequest -pullRequests $result -me $repositoryInfo.Me
+  $selectedPullRequest = Select-Pullrequest -pullRequests $result.body -me $repositoryInfo.Me
   if ($selectedPullRequest -eq $null) {
     Write-Blank
     return
@@ -179,7 +226,6 @@ function New-Pullrequest
      body = $body;
   }
 
-
   $prParams = @{
     Uri         = "https://api.github.com/repos/$($repositoryInfo.User)/$($repositoryInfo.Repository)/pulls"
     Method      = 'POST'
@@ -191,19 +237,23 @@ function New-Pullrequest
     Body = (ConvertTo-Json $data -Compress)
   }
 
-  $result = Invoke-RestMethod @prParams
+  $result = Get-WebReponse $prParams
+
+  if (!($result.Success)) {
+    return
+  }
 
   Write-Blank
   Write-Host 'Successfully created pull request'
   Write-Blank
-  Write-Host "Commits:       $($result.commits)"
-  Write-Host "Additions:     $($result.additions)"
-  Write-Host "Deletions:     $($result.deletions)"
-  Write-Host "Changed files: $($result.changed_files)"
+  Write-Host "Commits:       $($result.Body.commits)"
+  Write-Host "Additions:     $($result.Body.additions)"
+  Write-Host "Deletions:     $($result.Body.deletions)"
+  Write-Host "Changed files: $($result.Body.changed_files)"
   Write-Blank
-  Write-Host "You can visit the pull request at the following URL: $($result.url)"
+  Write-Host "You can visit the pull request at the following URL: $($result.Body.url)"
   Write-Blank
 }
 
-Set-Alias gpr Read-PullRequest -Description "Review a Github pull request"
+Set-Alias rpr Read-PullRequest -Description "Review a Github pull request"
 Set-Alias npr New-PullRequest -Description "Create a Github pull request"
