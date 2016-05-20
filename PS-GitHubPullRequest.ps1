@@ -20,7 +20,7 @@ function Get-PullRequests
     $repositoryInfo
   )
 
-  $releaseParams = @{
+  $prParams = @{
     Uri         = "https://api.github.com/repos/$($repositoryInfo.User)/$($repositoryInfo.Repository)/pulls"
     Method      = 'GET'
     Headers     = @{
@@ -30,7 +30,7 @@ function Get-PullRequests
     ContentType = 'application/json'
   }
 
-  $result = Invoke-RestMethod @releaseParams
+  $result = Invoke-RestMethod @prParams
   return $result
 }
 
@@ -88,11 +88,13 @@ function Select-Pullrequest
 
 function Get-GitRepositoryInfo
 {
+  $currentBranch =  git.exe rev-parse --abbrev-ref HEAD
   $base = git.exe remote get-url origin
   $result = New-Object PSObject -Property @{
-    Repository = ($base.Split('/') | Select-Object -Last 1).Replace('.git', '')
-    User       = ($base.Split('/') | Select-Object -First 1).Replace('git@github.com:', '')
-    Me         = git.exe config user.name
+    Repository    = ($base.Split('/') | Select-Object -Last 1).Replace('.git', '')
+    User          = ($base.Split('/') | Select-Object -First 1).Replace('git@github.com:', '')
+    Me            = git.exe config user.name
+    CurrentBranch = $currentBranch
   }
   return $result
 }
@@ -132,6 +134,7 @@ function Read-PullRequest
   $repositoryInfo = Get-GitRepositoryInfo
   $result = Get-PullRequests -repositoryInfo $repositoryInfo
   if ($result.count -eq 0) {
+    Write-Blank
     Write-Host 'There are no open pull-requests for this repository'
     Write-Blank
     return
@@ -149,4 +152,58 @@ function Read-PullRequest
   git.exe difftool -d -w $settings.BaseBranch "origin/$($selectedPullRequest.head.ref)"
 }
 
+function New-Pullrequest
+{
+  param(
+    [Parameter(Mandatory=$true)]
+    [string]
+    $title,
+    [string]
+    $head,
+    [string]
+    $base,
+    [string]
+    $body
+  )
+
+  if (!(Test-PreRequisites)) {
+    return
+  }
+
+  $repositoryInfo = Get-GitRepositoryInfo
+
+  $data = @{
+     title = $title;
+     head = if ($head -eq '') { $repositoryInfo.CurrentBranch } else { $head };
+     base = if ($base -eq '') { $settings.BaseBranch } else { $base };
+     body = $body;
+  }
+
+
+  $prParams = @{
+    Uri         = "https://api.github.com/repos/$($repositoryInfo.User)/$($repositoryInfo.Repository)/pulls"
+    Method      = 'POST'
+    Headers     = @{
+      Authorization = 'Basic ' + [Convert]::ToBase64String(
+      [Text.Encoding]::ASCII.GetBytes($settings.GitHubApiKey + ':x-oauth-basic'))
+    }
+    ContentType = 'application/json'
+    Body = (ConvertTo-Json $data -Compress)
+  }
+
+  $result = Invoke-RestMethod @prParams
+
+  Write-Blank
+  Write-Host 'Successfully created pull request'
+  Write-Blank
+  Write-Host "Commits:       $($result.commits)"
+  Write-Host "Additions:     $($result.additions)"
+  Write-Host "Deletions:     $($result.deletions)"
+  Write-Host "Changed files: $($result.changed_files)"
+  Write-Blank
+  Write-Host "You can visit the pull request at the following URL: $($result.url)"
+  Write-Blank
+}
+
 Set-Alias gpr Read-PullRequest -Description "Review a Github pull request"
+Set-Alias npr New-PullRequest -Description "Create a Github pull request"
