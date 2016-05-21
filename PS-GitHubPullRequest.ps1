@@ -143,7 +143,6 @@ function Get-GitRepositoryInfo
     User          = ($base.Split('/') | Select-Object -First 1).Replace('git@github.com:', '')
     Me            = git.exe config user.name
     CurrentBranch = $currentBranch
-    Upstream      = git.exe rev-parse --abbrev-ref --symbolic-full-name '@{u}'
   }
   return $result
 }
@@ -251,13 +250,10 @@ function New-Pullrequest
 
   $repositoryInfo = Get-GitRepositoryInfo
 
-  if ($repositoryInfo.Upstream -eq $null)
+  $upstream = git.exe rev-parse --abbrev-ref --symbolic-full-name '@{u}'
+  if ($upstream -eq $null)
   {
-    Write-Host 'To be able to create a pull request, push the current branch by using'
-    Write-Blank
-    Write-Host "     git push --set-upstream origin $($repositoryInfo.CurrentBranch)"
-    Write-Blank
-    return
+    git.exe push --set-upstream $settings.Remote $repositoryInfo.CurrentBranch
   }
 
   $data = @{
