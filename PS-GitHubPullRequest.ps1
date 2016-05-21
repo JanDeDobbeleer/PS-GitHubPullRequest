@@ -10,6 +10,7 @@
 $global:GitHubPullRequestSettings = New-Object -TypeName PSObject -Property @{
   GitHubApiKey = $null
   BaseBranch   = 'master'
+  Remote       = 'origin'
 }
 
 $settings = $global:GitHubPullRequestSettings
@@ -136,7 +137,7 @@ function Select-Pullrequest
 function Get-GitRepositoryInfo
 {
   $currentBranch = git.exe rev-parse --abbrev-ref HEAD
-  $base = git.exe remote get-url origin
+  $base = git.exe remote get-url $settings.Remote
   $result = New-Object PSObject -Property @{
     Repository    = ($base.Split('/') | Select-Object -Last 1).Replace('.git', '')
     User          = ($base.Split('/') | Select-Object -First 1).Replace('git@github.com:', '')
@@ -208,8 +209,8 @@ function Get-PullRequest
     return
   }
   Write-Blank
-  Write-Host 'Fetching origin'
-  git.exe fetch origin
+  Write-Host "Fetching $($settings.Remote)"
+  git.exe fetch $settings.Remote
   return $selectedPullRequest
 }
 
@@ -226,7 +227,7 @@ function Read-PullRequest
   }
   Write-Host 'Creating the diff'
   Write-Blank
-  git.exe difftool -d -w "origin/$($selectedPullRequest.base.ref)" "origin/$($selectedPullRequest.head.ref)"
+  git.exe difftool -d -w "$($settings.Remote)/$($selectedPullRequest.base.ref)" "$($settings.Remote)/$($selectedPullRequest.head.ref)"
 }
 
 function New-Pullrequest
@@ -324,12 +325,12 @@ function Close-PullRequest
   {
     return
   }
-  Write-Host "Merging origin/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
+  Write-Host "Merging $($settings.Remote)/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
   git.exe checkout $selectedPullRequest.base.ref
   git.exe pull
-  git.exe merge "origin/$($selectedPullRequest.head.ref)" --ff-only
+  git.exe merge "$($settings.Remote)/$($selectedPullRequest.head.ref)" --ff-only
   git.exe push
-  git.exe push origin --delete $selectedPullRequest.head.ref
+  git.exe push $settings.Remote --delete $selectedPullRequest.head.ref
 }
 
 Set-Alias rpr -Value Read-PullRequest -Description 'Review a Github pull request'
