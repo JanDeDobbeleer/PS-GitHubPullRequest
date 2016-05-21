@@ -9,7 +9,7 @@
 
 $global:GitHubPullRequestSettings = New-Object -TypeName PSObject -Property @{
   GitHubApiKey = $null
-  BaseBranch = 'master'
+  BaseBranch   = 'master'
 }
 
 $settings = $global:GitHubPullRequestSettings
@@ -21,32 +21,35 @@ function Get-WebReponse
   )
 
   $result = $null
-  try {
+  try
+  {
     $result = Invoke-RestMethod @data
     return New-Object PSObject -Property @{
       Success = $true
       Body    = $result
     }
   }
-  catch {
+  catch
+  {
     return Get-Failure
   }
-
 }
 
 function Get-Failure
 {
   $message = ''
-  try {
+  try
+  {
     $result = $_.Exception.Response.GetResponseStream()
-    $reader = New-Object System.IO.StreamReader($result)
+    $reader = New-Object System.IO.StreamReader -ArgumentList ($result)
     $reader.BaseStream.Position = 0
     $reader.DiscardBufferedData()
-    $response = $reader.ReadToEnd();
+    $response = $reader.ReadToEnd()
     $body = ConvertFrom-Json $response
     $message = $body.errors[0].message
   }
-  catch {
+  catch
+  {
     $message = 'Failed to execute Web Request'
   }
   Write-Blank
@@ -132,7 +135,7 @@ function Select-Pullrequest
 
 function Get-GitRepositoryInfo
 {
-  $currentBranch =  git.exe rev-parse --abbrev-ref HEAD
+  $currentBranch = git.exe rev-parse --abbrev-ref HEAD
   $base = git.exe remote get-url origin
   $result = New-Object PSObject -Property @{
     Repository    = ($base.Split('/') | Select-Object -Last 1).Replace('.git', '')
@@ -146,55 +149,61 @@ function Get-GitRepositoryInfo
 
 function Test-NoGitRepository
 {
-    $status = (Invoke-Expression -Command 'Get-GitStatus')
-    return $status -eq $null
+  $status = (Invoke-Expression -Command 'Get-GitStatus')
+  return $status -eq $null
 }
 
 function Test-PreRequisites
 {
-    param(
-      [boolean]
-      $cleanDirectoryRequired = $false
-    )
-    if (Test-NoGitRepository) {
-      Write-Blank
-      Write-Host 'This is not a Git repository'
-      Write-Blank
-      return $false
-    }
+  param(
+    [boolean]
+    $cleanDirectoryRequired = $false
+  )
+  if (Test-NoGitRepository)
+  {
+    Write-Blank
+    Write-Host 'This is not a Git repository'
+    Write-Blank
+    return $false
+  }
 
-    if ($settings.GitHubApiKey -eq $null){
-      Write-Blank
-      Write-Host 'Please add your GitHub API key to the settings first'
-      Write-Blank
-      return $false
-    }
+  if ($settings.GitHubApiKey -eq $null)
+  {
+    Write-Blank
+    Write-Host 'Please add your GitHub API key to the settings first'
+    Write-Blank
+    return $false
+  }
 
-    if ($cleanDirectoryRequired) {
-      $status = Get-VCSStatus
-      $localChanges = ($status.HasIndex -or $status.HasUntracked -or $status.HasWorking)
-      $localChanges = $localChanges -or (($status.Untracked -gt 0) -or ($status.Added -gt 0) -or ($status.Modified -gt 0) -or ($status.Deleted -gt 0) -or ($status.Renamed -gt 0))
-      return !$localChanges
-    }
+  if ($cleanDirectoryRequired)
+  {
+    $status = Get-VCSStatus
+    $localChanges = ($status.HasIndex -or $status.HasUntracked -or $status.HasWorking)
+    $localChanges = $localChanges -or (($status.Untracked -gt 0) -or ($status.Added -gt 0) -or ($status.Modified -gt 0) -or ($status.Deleted -gt 0) -or ($status.Renamed -gt 0))
+    return !$localChanges
+  }
 
-    return $true
+  return $true
 }
 
 function Get-PullRequest
 {
   $repositoryInfo = Get-GitRepositoryInfo
   $result = Get-PullRequests -repositoryInfo $repositoryInfo
-  if (!($result.Success)) {
+  if (!($result.Success))
+  {
     return
   }
-  if ($result.Body.count -eq 0) {
+  if ($result.Body.count -eq 0)
+  {
     Write-Blank
     Write-Host 'There are no open pull-requests for this repository'
     Write-Blank
     return
   }
   $selectedPullRequest = Select-Pullrequest -pullRequests $result.body -me $repositoryInfo.Me
-  if ($selectedPullRequest -eq $null) {
+  if ($selectedPullRequest -eq $null)
+  {
     Write-Blank
     return
   }
@@ -206,22 +215,24 @@ function Get-PullRequest
 
 function Read-PullRequest
 {
-  if (!(Test-PreRequisites)) {
+  if (!(Test-PreRequisites))
+  {
     return
   }
   $selectedPullRequest = Get-PullRequest
-  if ($selectedPullRequest -eq $null) {
+  if ($selectedPullRequest -eq $null)
+  {
     return
   }
   Write-Host 'Creating the diff'
   Write-Blank
-  git.exe difftool -d -w $selectedPullRequest.base.ref "origin/$($selectedPullRequest.head.ref)"
+  git.exe difftool -d -w "origin/$($selectedPullRequest.base.ref)" "origin/$($selectedPullRequest.head.ref)"
 }
 
 function New-Pullrequest
 {
   param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory = $true)]
     [string]
     $title,
     [string]
@@ -232,13 +243,15 @@ function New-Pullrequest
     $body
   )
 
-  if (!(Test-PreRequisites)) {
+  if (!(Test-PreRequisites))
+  {
     return
   }
 
   $repositoryInfo = Get-GitRepositoryInfo
 
-  if ($repositoryInfo.Upstream -eq $null) {
+  if ($repositoryInfo.Upstream -eq $null)
+  {
     Write-Host 'To be able to create a pull request, push the current branch by using'
     Write-Blank
     Write-Host "     git push --set-upstream origin $($repositoryInfo.CurrentBranch)"
@@ -247,10 +260,24 @@ function New-Pullrequest
   }
 
   $data = @{
-     title = $title;
-     head = if ($head -eq '') { $repositoryInfo.CurrentBranch } else { $head };
-     base = if ($base -eq '') { $settings.BaseBranch } else { $base };
-     body = $body;
+    title = $title
+    head  = if ($head -eq '')
+    {
+      $repositoryInfo.CurrentBranch
+    }
+    else
+    {
+      $head
+    }
+    base  = if ($base -eq '')
+    {
+      $settings.BaseBranch
+    }
+    else
+    {
+      $base
+    }
+    body  = $body
   }
 
   $prParams = @{
@@ -261,12 +288,13 @@ function New-Pullrequest
       [Text.Encoding]::ASCII.GetBytes($settings.GitHubApiKey + ':x-oauth-basic'))
     }
     ContentType = 'application/json'
-    Body = (ConvertTo-Json $data -Compress)
+    Body        = (ConvertTo-Json $data -Compress)
   }
 
   $result = Get-WebReponse $prParams
 
-  if (!($result.Success)) {
+  if (!($result.Success))
+  {
     return
   }
 
@@ -284,24 +312,26 @@ function New-Pullrequest
 
 function Close-PullRequest
 {
-  if (!(Test-PreRequisites -cleanDirectoryRequired $true)) {
+  if (!(Test-PreRequisites -cleanDirectoryRequired $true))
+  {
     Write-Blank
     Write-Host 'Please stash or commit your local changes before continuing'
     Write-Blank
     return
   }
   $selectedPullRequest = Get-PullRequest
-  if ($selectedPullRequest -eq $null) {
+  if ($selectedPullRequest -eq $null)
+  {
     return
   }
   Write-Host "Merging origin/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
   git.exe checkout $selectedPullRequest.base.ref
   git.exe pull
   git.exe merge "origin/$($selectedPullRequest.head.ref)" --ff-only
-  git push
-  git push origin --delete $selectedPullRequest.head.ref
+  git.exe push
+  git.exe push origin --delete $selectedPullRequest.head.ref
 }
 
-Set-Alias rpr Read-PullRequest -Description "Review a Github pull request"
-Set-Alias npr New-PullRequest -Description "Create a Github pull request"
-Set-Alias cpr Close-PullRequest -Description "Close a Github pull request"
+Set-Alias rpr -Value Read-PullRequest -Description 'Review a Github pull request'
+Set-Alias npr -Value New-PullRequest -Description 'Create a Github pull request'
+Set-Alias cpr -Value Close-PullRequest -Description 'Close a Github pull request'
