@@ -307,6 +307,21 @@ function New-Pullrequest
   Write-Blank
 }
 
+function Invoke-MergeLogic
+{
+  param(
+    [Parameter(Mandatory = $true)]
+    [object]
+    $pullRequest
+  )
+  Write-Host "Merging $($settings.Remote)/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
+  git.exe checkout $pullRequest.base.ref
+  git.exe pull
+  git.exe merge "$($settings.Remote)/$($pullRequest.head.ref)" --ff-only
+  git.exe push
+  git.exe push $settings.Remote --delete $pullRequest.head.ref
+}
+
 function Close-PullRequest
 {
   if (!(Test-PreRequisites -cleanDirectoryRequired $true))
@@ -321,12 +336,7 @@ function Close-PullRequest
   {
     return
   }
-  Write-Host "Merging $($settings.Remote)/$($selectedPullRequest.head.ref) into $($selectedPullRequest.base.ref) using fast forward"
-  git.exe checkout $selectedPullRequest.base.ref
-  git.exe pull
-  git.exe merge "$($settings.Remote)/$($selectedPullRequest.head.ref)" --ff-only
-  git.exe push
-  git.exe push $settings.Remote --delete $selectedPullRequest.head.ref
+  Invoke-MergeLogic -pullRequest $selectedPullRequest
 }
 
 Set-Alias rpr -Value Read-PullRequest -Description 'Review a Github pull request'
