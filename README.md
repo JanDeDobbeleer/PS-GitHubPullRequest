@@ -2,7 +2,7 @@ PS-GitHubPullRequest
 ====================
 
 A PowerShell tool to interact with the GitHub API and watch/resolve pull requests using your own logic.
-More information about why I made this can be found on my [blog](https://herebedragons.io/shell-shock/).
+More information about why I made this can be found on my [blog](https://herebedragons.io/power_pulling/).
 
 Functionality:
 * List the pull request from within a Git repository
