@@ -229,6 +229,36 @@ function Read-PullRequest
   git.exe difftool -d -w "$($settings.Remote)/$($selectedPullRequest.base.ref)" "$($settings.Remote)/$($selectedPullRequest.head.ref)"
 }
 
+function Set-Assignee
+{
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]
+    $assignee,
+    [Parameter(Mandatory = $true)]
+    [string]
+    $issueLink
+  )
+
+  $data = @{
+    assignee = $assignee
+  }
+
+  $prParams = @{
+    Uri         = $issueLink
+    Method      = 'PATCH'
+    Headers     = @{
+      Authorization = 'Basic ' + [Convert]::ToBase64String(
+      [Text.Encoding]::ASCII.GetBytes($settings.GitHubApiKey + ':x-oauth-basic'))
+    }
+    ContentType = 'application/json'
+    Body        = (ConvertTo-Json $data -Compress)
+  }
+
+  $result = Get-WebReponse $prParams
+  return $result
+}
+
 function New-Pullrequest
 {
   param(
