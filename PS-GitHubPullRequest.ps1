@@ -270,7 +270,9 @@ function New-Pullrequest
     [string]
     $base,
     [string]
-    $body
+    $body,
+    [string]
+    $assignee
   )
 
   if (!(Test-PreRequisites))
@@ -325,9 +327,19 @@ function New-Pullrequest
     return
   }
 
+  if (!($assignee -eq ''))
+  {
+      $assigneeResult = Set-Assignee -assignee $assignee -issueLink $result.body.issue_url
+      Write-Host $assigneeResult
+  }
+
   Write-Blank
   Write-Host 'Successfully created pull request'
   Write-Blank
+  if ($assigneeResult.Success)
+  {
+    Write-Host "Assignee:      $assignee"
+  }
   Write-Host "Commits:       $($result.Body.commits)"
   Write-Host "Additions:     $($result.Body.additions)"
   Write-Host "Deletions:     $($result.Body.deletions)"
