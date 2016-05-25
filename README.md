@@ -18,7 +18,11 @@ This will output a list containing the current open pull requests for the curren
 #### New-PullRequest -title 'Insert your title here'
 <img src="https://herebedragons.io/wp-content/uploads/2016/05/npr.png">
 
-Create a new pull request for the branch you are currently on. Requires a title as parameter. If no base branch is given, it will use the one defined in `$GitHubPullRequestSettings.BaseBranch`. You can override the selection of the current branch by providing the `-head` parameter followed by the branch name. Optionally, you can add a body by using `-body 'This is my body'`.
+Create a new pull request for the branch you are currently on. Requires a title as parameter. If no base branch is given, it will use the one defined in `$GitHubPullRequestSettings.BaseBranch`. Options:
+* `-base`: the branch you want to merge into (string)
+* `-head`: the branch you want to merge (string)
+* `-body`: additional content (string)
+* `-assignee`: GitHub username (string)
 
 #### Close-PullRequest
 <img src="https://herebedragons.io/wp-content/uploads/2016/05/cpr.png">
